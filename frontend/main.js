@@ -368,7 +368,7 @@ async function handleGenerateTube() {
     showMessage("Đang gửi dữ liệu đến server...", "success");
 
     try {
-        const response = await fetch('http://127.0.0.1:5000/api/calculate_tube', {
+        const response = await fetch('/api/calculate_tube', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
