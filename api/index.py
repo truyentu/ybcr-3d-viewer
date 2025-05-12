@@ -1,322 +1,128 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trực Quan Hóa Ống Cong 3D - Đa Biên Dạng</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            background-color: #f3f4f6;
-            margin: 0;
-            padding-top: 1rem;
-            padding-bottom: 1rem; /* Thêm padding dưới để tránh nút Generate bị che khi cuộn */
-        }
-        .main-container {
-            display: flex;
-            flex-direction: row;
-            gap: 1rem;
-            width: 95%;
-            max-width: 1600px;
-            /* Loại bỏ height cố định để nội dung có thể mở rộng */
-            /* height: calc(100vh - 4rem); */
-            background-color: white;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            overflow: hidden;
-        }
-        #controlsPanel {
-            width: 40%;
-            min-width: 320px; /* Giảm min-width cho màn hình nhỏ hơn */
-            padding: 1.5rem;
-            background-color: #ffffff;
-            border-right: 1px solid #e5e7eb;
-            overflow-y: auto; /* Cho phép cuộn panel điều khiển nếu nội dung dài */
-            display: flex;
-            flex-direction: column;
-            /* Giới hạn chiều cao tối đa cho panel control, đặc biệt quan trọng trên mobile */
-            max-height: calc(100vh - 2rem); /* Để chừa không gian cho padding body */
-        }
-        #viewerContainer {
-            width: 60%;
-            height: calc(100vh - 2rem); /* Giữ chiều cao viewer */
-            min-height: 300px; /* Chiều cao tối thiểu cho viewer */
-            position: relative;
-        }
-        label {
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-            color: #374151;
-            display: block;
-        }
-        input[type="number"], select {
-            width: 100%;
-            padding: 0.5rem 0.75rem;
-            border: 1px solid #d1d5db;
-            border-radius: 0.375rem;
-            margin-bottom: 1rem;
-            box-sizing: border-box;
-            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-        }
-        input[type="number"]:focus, select:focus {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
-            outline: none;
-        }
-        .profile-options div {
-            margin-bottom: 1rem;
-        }
-        .profile-options label {
-            font-size: 0.875rem;
-            margin-bottom: 0.25rem;
-        }
-        .profile-options input[type="number"] {
-            margin-bottom: 0.5rem;
-        }
+# File: api/index.py
 
-        #generateButton {
-            background-color: #16a34a;
-            color: white;
-            font-weight: 700;
-            padding: 0.875rem 2rem;
-            border: none;
-            border-radius: 0.375rem;
-            cursor: pointer;
-            transition: background-color 0.2s ease-in-out;
-            margin-top: 1.5rem;
-            font-size: 1.125rem;
-            width: 100%;
-        }
-        #generateButton:hover {
-            background-color: #15803d;
-        }
-        .action-buttons button {
-            background-color: #4f46e5;
-            color: white;
-            font-weight: 500;
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 0.375rem;
-            cursor: pointer;
-            transition: background-color 0.2s ease-in-out;
-            margin-right: 0.5rem;
-            margin-bottom: 0.5rem; /* Thêm margin bottom cho nút trên mobile */
-        }
-        .action-buttons button.delete-button {
-            background-color: #dc2626;
-        }
-        .action-buttons button:hover {
-            opacity: 0.85;
-        }
+# Đảm bảo các dòng import này không có khoảng trắng/tab ở đầu dòng
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import json
+import logging
+import os
 
-        /* === CẬP NHẬT CSS CHO BẢNG YBCR === */
-        #ybcrTableContainer {
-            margin-top: 1rem;
-            /* Cho phép cuộn ngang và dọc */
-            overflow: auto; /* Thay đổi từ overflow-y: auto */
-            border: 1px solid #e5e7eb;
-            border-radius: 0.375rem;
-            flex-grow: 1; /* Cho phép bảng mở rộng */
-            /* Giới hạn chiều cao tối đa để không làm panel quá dài */
-            max-height: 300px; 
-        }
-        #ybcrTable {
-            width: 100%;
-            min-width: 500px; /* Đặt chiều rộng tối thiểu cho bảng để nó không bị bóp quá mức */
-            border-collapse: collapse;
-        }
-        #ybcrTable th, #ybcrTable td {
-            border: 1px solid #e5e7eb;
-            padding: 0.5rem; /* Có thể giảm padding nếu cần */
-            text-align: center;
-            font-size: 0.875rem;
-            /* Đảm bảo các ô không bị co lại quá mức */
-            white-space: nowrap; 
-        }
-        #ybcrTable th {
-            background-color: #f9fafb;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-            z-index: 10; /* Đảm bảo header nổi lên trên khi cuộn */
-        }
-        #ybcrTable td input[type="number"] {
-            /* Giảm chiều rộng một chút để vừa hơn trên mobile, nhưng vẫn đủ dùng */
-            width: 70px; 
-            min-width: 60px; /* Chiều rộng tối thiểu */
-            padding: 0.35rem 0.4rem; /* Giảm padding của input */
-            margin-bottom: 0;
-            text-align: right;
-            font-size: 0.875rem; /* Đồng bộ font size */
-        }
-        #ybcrTable td input[type="checkbox"] {
-            margin: 0 auto;
-            display: block;
-            /* Tăng kích thước checkbox để dễ chạm hơn */
-            width: 1.15rem; 
-            height: 1.15rem;
-        }
-        /* === KẾT THÚC CẬP NHẬT CSS CHO BẢNG YBCR === */
+# Các dòng comment cũng không nên có thụt đầu dòng không cần thiết
+# Quan trọng: Khi triển khai lên Vercel, các file trong thư mục 'api'
+# có thể được coi là đang ở thư mục gốc của môi trường serverless.
+# Chúng ta cần đảm bảo YBC3D_web.py được import đúng cách.
+try: # Khối try bắt đầu ở đây, các dòng bên trong nó sẽ được thụt vào
+    # Thử import trực tiếp nếu Vercel đặt các file cùng cấp khi build
+    from YBC3D_web import calculate_centerline_from_data
+except ImportError:
+    # Nếu không được, thử import từ thư mục hiện tại (thường là 'api')
+    # Điều này có thể cần thiết tùy theo cách Vercel build
+    try:
+        from .YBC3D_web import calculate_centerline_from_data
+    except ImportError as e:
+        # Sử dụng logging của Python thay vì print trực tiếp trong môi trường serverless
+        # logging.critical sẽ được Vercel ghi lại
+        logging.critical(f"LỖI NGHIÊM TRỌNG: Không thể import 'calculate_centerline_from_data' từ YBC3D_web.py. Lỗi: {e}")
+        logging.critical("Đường dẫn sys.path hiện tại: %s", os.sys.path)
+        # Dòng này sẽ giúp bạn kiểm tra Vercel có "thấy" file YBC3D_web.py không
+        # Trong môi trường Vercel, thư mục làm việc thường là /var/task
+        current_dir_content = "Không thể liệt kê thư mục."
+        try:
+            current_dir_content = os.listdir('.' if os.path.exists('.') else '/var/task/api') # Thử /var/task/api nếu '.' không hoạt động
+            # Hoặc os.listdir(os.path.dirname(__file__)) # Lấy thư mục của file hiện tại
+        except Exception as list_dir_e:
+            current_dir_content = f"Lỗi khi liệt kê thư mục: {list_dir_e}"
 
-        .error-message, .success-message {
-            color: #ef4444;
-            background-color: #fee2e2;
-            border: 1px solid #fca5a5;
-            padding: 0.75rem;
-            border-radius: 0.375rem;
-            margin-top: 1rem;
-            font-size: 0.875rem;
-        }
-        .success-message {
-            color: #166534;
-            background-color: #dcfce7;
-            border: 1px solid #86efac;
-        }
-        h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #1f2937;
-            margin-bottom: 1.5rem;
-            text-align: center;
-        }
+        logging.critical(f"Các file trong thư mục hiện tại (dự kiến là api/): {current_dir_content}")
+
+
+        def calculate_centerline_from_data(data_dict): # Hàm giả
+            return json.dumps({
+                "error": "Lỗi cấu hình server: Chức năng tính toán không khả dụng do lỗi import module YBC3D_web.",
+                "centerline_points": [], "segment_info": [],
+                "final_point": [0,0,0], "final_direction": [1,0,0],
+                "final_up_vector": [0,0,1],
+                "diameter": data_dict.get("Diameter", 30.0),
+                "profile": data_dict.get("profile_in_request", {})
+            })
+
+# Khởi tạo ứng dụng Flask
+# Dòng này cũng không được thụt đầu dòng
+app = Flask(__name__)
+CORS(app) # Cho phép CORS cho tất cả các route
+
+# Cấu hình logger của Flask
+if not app.debug:
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)
+
+
+@app.route('/api/calculate_tube', methods=['POST'])
+def handle_calculate_tube():
+    # Các dòng bên trong hàm này sẽ được thụt vào một cấp
+    app.logger.info(f"Yêu cầu nhận được tại /api/calculate_tube với phương thức {request.method}")
+    try:
+        input_data = request.get_json()
+        if not input_data:
+            app.logger.warning("Dữ liệu đầu vào rỗng hoặc không phải JSON.")
+            return jsonify({"error": "Dữ liệu đầu vào không hợp lệ."}), 400
         
-        /* Responsive adjustments */
-        @media (max-width: 900px) { /* Giữ nguyên breakpoint này hoặc điều chỉnh nếu cần */
-            .main-container {
-                flex-direction: column;
-                height: auto; /* Cho phép chiều cao tự điều chỉnh */
-                width: 100%; /* Chiếm toàn bộ chiều rộng màn hình */
-                border-radius: 0; /* Bỏ bo góc trên mobile nếu muốn */
-            }
-            #controlsPanel {
-                width: 100%;
-                border-right: none;
-                border-bottom: 1px solid #e5e7eb; /* Thêm đường kẻ dưới khi xếp dọc */
-                max-height: none; /* Bỏ giới hạn chiều cao panel control khi xếp dọc để có thể cuộn toàn trang */
-                /* Hoặc đặt một max-height phù hợp cho mobile, ví dụ 50vh hoặc 60vh */
-                /* max-height: 60vh; */ 
-                overflow-y: auto; /* Đảm bảo panel control vẫn cuộn được nếu nội dung dài */
-            }
-            #viewerContainer {
-                width: 100%;
-                height: 50vh; /* Chiều cao cố định cho viewer trên mobile */
-                min-height: 300px;
-            }
-            /* Điều chỉnh cho bảng trên màn hình nhỏ hơn nữa nếu cần */
-            #ybcrTable th, #ybcrTable td {
-                padding: 0.4rem; /* Giảm padding thêm chút nữa */
-                font-size: 0.8rem; /* Giảm font size thêm chút nữa */
-            }
-            #ybcrTable td input[type="number"] {
-                width: 60px;
-                font-size: 0.8rem;
-            }
-        }
-        /* Thêm breakpoint cho màn hình rất nhỏ nếu bảng vẫn bị che */
-        @media (max-width: 480px) {
-            #ybcrTable th, #ybcrTable td {
-                padding: 0.3rem;
-                font-size: 0.75rem;
-            }
-             #ybcrTable td input[type="number"] {
-                width: 50px; /* Giảm chiều rộng input cho màn hình rất nhỏ */
-                min-width: 45px;
-                font-size: 0.75rem;
-            }
-            .action-buttons {
-                display: flex;
-                flex-direction: column; /* Xếp các nút Thêm/Xóa dọc */
-                gap: 0.5rem;
-            }
-            .action-buttons button {
-                width: 100%;
-                margin-right: 0;
-            }
-            h1 {
-                font-size: 1.25rem; /* Giảm kích thước tiêu đề chính */
-            }
-        }
+        app.logger.info(f"Dữ liệu đầu vào đã parse: {input_data}")
 
-        /* Ẩn các tùy chọn kích thước biên dạng ban đầu */
-        .profile-dimension-options {
-            display: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="main-container">
-        <div id="controlsPanel">
-            <h1>YBCR Data Input</h1>
+        profile_info_from_request = input_data.get('profile')
+        ybc_data_from_request = input_data.get('YBC')
 
-            <label for="profileType">Shape type</label>
-            <select id="profileType" class="rounded-md shadow-sm">
-                <option value="round" selected>Round tube</option>
-                <option value="square">Square</option>
-                <option value="rectangle">Rectangle</option>
-            </select>
+        if not profile_info_from_request or not isinstance(profile_info_from_request, dict):
+            app.logger.warning("Thiếu hoặc sai định dạng 'profile' trong request.") # Thêm log
+            return jsonify({"error": "Thiếu hoặc sai định dạng 'profile'."}), 400
+        if not ybc_data_from_request or not isinstance(ybc_data_from_request, list):
+            app.logger.warning("Thiếu hoặc sai định dạng 'YBC' trong request.") # Thêm log
+            return jsonify({"error": "Thiếu hoặc sai định dạng 'YBC'."}), 400
 
-            <div id="profileOptionsContainer" class="mt-2">
-                <div id="roundProfileOptions" class="profile-dimension-options">
-                    <label for="diameter">Đường kính ống (mm):</label>
-                    <input type="number" id="diameter" value="30" class="rounded-md shadow-sm">
-                </div>
-                <div id="squareProfileOptions" class="profile-dimension-options">
-                    <label for="squareSide">Cạnh hình vuông (mm):</label>
-                    <input type="number" id="squareSide" value="20" class="rounded-md shadow-sm">
-                </div>
-                <div id="rectangleProfileOptions" class="profile-dimension-options">
-                    <label for="rectWidth">Chiều rộng hình chữ nhật (mm):</label>
-                    <input type="number" id="rectWidth" value="30" class="rounded-md shadow-sm">
-                    <label for="rectHeight">Chiều cao hình chữ nhật (mm):</label>
-                    <input type="number" id="rectHeight" value="20" class="rounded-md shadow-sm">
-                </div>
-            </div>
-
-            <h2 class="text-lg font-semibold mt-4 mb-2 text-gray-700">YBCRadius:</h2>
-            <div class="action-buttons mb-3">
-                <button id="addRowButton">Add bend</button>
-                <button id="deleteSelectedRowButton" class="delete-button">Delete bend</button>
-            </div>
-
-            <div id="ybcrTableContainer">
-                <table id="ybcrTable">
-                    <thead>
-                        <tr>
-                            <th>select</th>
-                            <th>Y (Feed)</th>
-                            <th>B (Bend °)</th>
-                            <th>C (Rotation °)</th>
-                            <th>Radius</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ybcrTableBody">
-                        <tr>
-                            <td><input type="checkbox" name="selectRow"></td>
-                            <td><input type="number" class="y-input" value="100"></td>
-                            <td><input type="number" class="b-input" value="90"></td>
-                            <td><input type="number" class="c-input" value="0"></td>
-                            <td><input type="number" class="r-input" value="50"></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        data_for_centerline_calc = {'YBC': ybc_data_from_request}
+        if profile_info_from_request.get('type') == 'round':
+            dimensions = profile_info_from_request.get('dimensions', {})
+            if 'diameter' in dimensions:
+                data_for_centerline_calc['Diameter'] = dimensions['diameter']
+        
+        # Kiểm tra hàm tính toán
+        # Đảm bảo calculate_centerline_from_data không phải là hàm giả do lỗi import
+        if not callable(calculate_centerline_from_data) or \
+          (hasattr(calculate_centerline_from_data, '__name__') and calculate_centerline_from_data.__name__ == '<lambda>' and "Lỗi cấu hình server" in calculate_centerline_from_data({}).get("error","")):
+            app.logger.error("Hàm 'calculate_centerline_from_data' không khả dụng (có thể do lỗi import YBC3D_web.py).")
+            # Cung cấp thêm thông tin debug về import
+            module_path_check = "Không xác định"
+            try:
+                # __file__ là đường dẫn đến file index.py hiện tại
+                # os.path.dirname(__file__) là thư mục chứa index.py (tức là 'api')
+                module_path_check = os.path.abspath(os.path.join(os.path.dirname(__file__), "YBC3D_web.py"))
+                app.logger.error(f"Kiểm tra sự tồn tại của YBC3D_web.py tại: {module_path_check} - Tồn tại: {os.path.exists(module_path_check)}")
+            except Exception as path_e:
+                 app.logger.error(f"Lỗi khi kiểm tra đường dẫn YBC3D_web.py: {path_e}")
             
-            <button id="generateButton">View 3D shape</button>
-            <div id="messageArea" class="mt-4"></div>
-        </div>
+            return jsonify({"error": "Lỗi server: Chức năng tính toán không khả dụng (lỗi import nội bộ)."}), 500
 
-        <div id="viewerContainer">
-            </div>
-    </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="main.js"></script>
-</body>
-</html>
+        result_json_string = calculate_centerline_from_data(data_for_centerline_calc)
+        result_data_from_calc = json.loads(result_json_string)
+        
+        # Kiểm tra lỗi trả về từ hàm calculate_centerline_from_data
+        if "error" in result_data_from_calc and result_data_from_calc["error"]:
+             app.logger.warning(f"Lỗi từ hàm tính toán YBCR: {result_data_from_calc['error']}")
+             return jsonify(result_data_from_calc), 400 # Trả về lỗi do người dùng cung cấp dữ liệu sai
+
+        final_response_data = result_data_from_calc.copy()
+        final_response_data['profile'] = profile_info_from_request # Thêm thông tin biên dạng
+        
+        app.logger.info(f"Phản hồi cuối cùng: {final_response_data}")
+        return jsonify(final_response_data), 200
+
+    except json.JSONDecodeError as jde:
+        app.logger.error(f"Lỗi parse JSON từ request: {jde}", exc_info=True)
+        return jsonify({"error": f"JSON không hợp lệ trong request: {str(jde)}"}), 400
+    except Exception as e: # Bắt các lỗi chung khác
+        app.logger.error(f"Lỗi server không xác định trong handle_calculate_tube: {e}", exc_info=True)
+        return jsonify({"error": "Lỗi server không mong muốn."}), 500
+
+# KHÔNG CẦN app.run() khi triển khai lên Vercel
