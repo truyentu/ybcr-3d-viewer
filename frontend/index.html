@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trực Quan Hóa Ống Cong 3D - Đa Biên Dạng</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding-top: 1rem;
+        }
+        .main-container {
+            display: flex;
+            flex-direction: row;
+            gap: 1rem;
+            width: 95%;
+            max-width: 1600px;
+            height: calc(100vh - 4rem); /* Điều chỉnh chiều cao nếu cần */
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            overflow: hidden;
+        }
+        #controlsPanel {
+            width: 40%;
+            min-width: 480px; /* Tăng nhẹ chiều rộng tối thiểu */
+            padding: 1.5rem;
+            background-color: #ffffff;
+            border-right: 1px solid #e5e7eb;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        #viewerContainer {
+            width: 60%;
+            height: 100%;
+            position: relative;
+        }
+        label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #374151;
+            display: block;
+        }
+        input[type="number"], select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            margin-bottom: 1rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        input[type="number"]:focus, select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+            outline: none;
+        }
+        .profile-options div { /* Các div chứa input kích thước biên dạng */
+            margin-bottom: 1rem;
+        }
+        .profile-options label {
+            font-size: 0.875rem; /* Chữ nhỏ hơn cho label kích thước */
+            margin-bottom: 0.25rem;
+        }
+        .profile-options input[type="number"] {
+            margin-bottom: 0.5rem; /* Giảm margin cho input kích thước */
+        }
+
+        #generateButton {
+            background-color: #16a34a;
+            color: white;
+            font-weight: 700;
+            padding: 0.875rem 2rem;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            margin-top: 1.5rem;
+            font-size: 1.125rem;
+            width: 100%;
+        }
+        #generateButton:hover {
+            background-color: #15803d;
+        }
+        .action-buttons button {
+            background-color: #4f46e5;
+            color: white;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            margin-right: 0.5rem;
+        }
+        .action-buttons button.delete-button {
+            background-color: #dc2626;
+        }
+        .action-buttons button:hover {
+            opacity: 0.85;
+        }
+        #ybcrTableContainer {
+            margin-top: 1rem;
+            max-height: 300px; /* Giảm chiều cao bảng một chút */
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            flex-grow: 1;
+        }
+        #ybcrTable {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #ybcrTable th, #ybcrTable td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5rem;
+            text-align: center;
+            font-size: 0.875rem;
+        }
+        #ybcrTable th {
+            background-color: #f9fafb;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        #ybcrTable td input[type="number"] {
+            width: 80px;
+            padding: 0.25rem 0.5rem;
+            margin-bottom: 0;
+            text-align: right;
+        }
+        #ybcrTable td input[type="checkbox"] {
+            margin: 0 auto;
+            display: block;
+        }
+        .error-message, .success-message {
+            color: #ef4444;
+            background-color: #fee2e2;
+            border: 1px solid #fca5a5;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+        }
+        .success-message {
+            color: #166534;
+            background-color: #dcfce7;
+            border: 1px solid #86efac;
+        }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        /* Ẩn các tùy chọn kích thước biên dạng ban đầu */
+        .profile-dimension-options {
+            display: none;
+        }
+        @media (max-width: 900px) {
+            .main-container {
+                flex-direction: column;
+                height: auto;
+            }
+            #controlsPanel, #viewerContainer {
+                width: 100%;
+                border-right: none;
+            }
+            #viewerContainer {
+                min-height: 350px;
+                height: 50vh;
+            }
+            #controlsPanel {
+                max-height: 60vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div id="controlsPanel">
+            <h1>Nhập Dữ Liệu Ống Cong</h1>
+
+            <label for="profileType">Loại biên dạng:</label>
+            <select id="profileType" class="rounded-md shadow-sm">
+                <option value="round" selected>Tròn (Tube)</option>
+                <option value="square">Vuông (Square)</option>
+                <option value="rectangle">Chữ Nhật (Rectangle)</option>
+            </select>
+
+            <div id="profileOptionsContainer" class="mt-2">
+                <div id="roundProfileOptions" class="profile-dimension-options">
+                    <label for="diameter">Đường kính ống (mm):</label>
+                    <input type="number" id="diameter" value="30" class="rounded-md shadow-sm">
+                </div>
+                <div id="squareProfileOptions" class="profile-dimension-options">
+                    <label for="squareSide">Cạnh hình vuông (mm):</label>
+                    <input type="number" id="squareSide" value="20" class="rounded-md shadow-sm">
+                </div>
+                <div id="rectangleProfileOptions" class="profile-dimension-options">
+                    <label for="rectWidth">Chiều rộng hình chữ nhật (mm):</label>
+                    <input type="number" id="rectWidth" value="30" class="rounded-md shadow-sm">
+                    <label for="rectHeight">Chiều cao hình chữ nhật (mm):</label>
+                    <input type="number" id="rectHeight" value="20" class="rounded-md shadow-sm">
+                </div>
+            </div>
+
+            <h2 class="text-lg font-semibold mt-4 mb-2 text-gray-700">Dữ liệu YBCR:</h2>
+            <div class="action-buttons mb-3">
+                <button id="addRowButton">Thêm Dòng</button>
+                <button id="deleteSelectedRowButton" class="delete-button">Xóa Dòng Chọn</button>
+            </div>
+
+            <div id="ybcrTableContainer">
+                <table id="ybcrTable">
+                    <thead>
+                        <tr>
+                            <th>Chọn</th>
+                            <th>Y (Feed)</th>
+                            <th>B (Bend °)</th>
+                            <th>C (Rotation °)</th>
+                            <th>Radius</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ybcrTableBody">
+                        <tr>
+                            <td><input type="checkbox" name="selectRow"></td>
+                            <td><input type="number" class="y-input" value="100"></td>
+                            <td><input type="number" class="b-input" value="90"></td>
+                            <td><input type="number" class="c-input" value="0"></td>
+                            <td><input type="number" class="r-input" value="50"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <button id="generateButton">Tạo Biên Dạng 3D</button>
+            <div id="messageArea" class="mt-4"></div>
+        </div>
+
+        <div id="viewerContainer">
+            </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
